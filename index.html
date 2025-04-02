@@ -3,15 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>O Cabeção Vai Invadir o Mundo - Random Map Update</title>
+    <title>O Cabeção Vai Invadir o Mundo - Score & Difficulty Update</title>
     <style>
-        /* --- CSS Styles remain the same --- */
+        /* --- CSS --- */
         html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%; background-color: #050505; display: flex; justify-content: center; align-items: center; font-family: 'Courier New', Courier, monospace; color: #ccc; overscroll-behavior: none; }
         canvas { border: 2px solid #444; background-color: #1a1a1a; box-shadow: 0 0 25px rgba(150, 0, 0, 0.3); display: block; }
-        #ui { position: absolute; top: 15px; left: 15px; background-color: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; border: 1px solid #333; z-index: 10; color: #ccc; font-size: clamp(10px, 2vw, 14px); }
+        #ui { position: absolute; top: 15px; left: 15px; background-color: rgba(0, 0, 0, 0.7); /* Slightly more opaque */ padding: 10px 15px; border-radius: 5px; border: 1px solid #333; z-index: 10; color: #ccc; font-size: clamp(10px, 1.8vw, 14px); /* Adjusted clamp */ line-height: 1.4; }
         #ui div { margin-bottom: 5px; }
-        #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ffcc00; font-size: clamp(1.2em, 4vw, 2em); font-weight: bold; text-align: center; background-color: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 10px; border: 1px solid #555; display: none; z-index: 20; text-shadow: 1px 1px 3px #000; width: 80%; max-width: 500px; box-sizing: border-box; }
+        #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ffcc00; font-size: clamp(1.2em, 4vw, 2em); font-weight: bold; text-align: center; background-color: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 10px; border: 1px solid #555; display: none; z-index: 20; text-shadow: 1px 1px 3px #000; width: 85%; max-width: 550px; box-sizing: border-box; }
         #pulse-status { color: #99ffff; }
+        #score-ui, #highscore-ui, #level-ui { font-weight: bold; } /* Highlight scores/level */
+        #highscore-ui { color: #ffee88; } /* Different color for high score */
+        #level-ui { color: #ffaaaa; } /* Different color for level */
+
+        /* --- Touch Controls CSS remains the same --- */
         .touch-controls { position: absolute; bottom: 20px; width: 150px; height: 150px; z-index: 15; opacity: 0.4; user-select: none; -webkit-user-select: none; -ms-user-select: none; touch-action: manipulation; }
         .touch-controls-move { left: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; gap: 5px; }
         .touch-controls-action { right: 20px; display: flex; justify-content: center; align-items: center; }
@@ -22,11 +27,15 @@
         #btn-down { grid-column: 2; grid-row: 3; }
         #btn-pulse { width: 70px; height: 70px; font-size: 1.2em; border-radius: 15px; background-color: rgba(150, 200, 255, 0.7); }
         .touch-button:active, .touch-button.active { background-color: rgba(255, 255, 255, 0.9); transform: scale(0.95); }
-         @media (hover: hover) and (pointer: fine) { .touch-controls { /* display: none; */ opacity: 0.15; pointer-events: none; } #ui { font-size: 14px; } #message { font-size: 2em; } }
+         @media (hover: hover) and (pointer: fine) { .touch-controls { opacity: 0.15; pointer-events: none; } #ui { font-size: 14px; } #message { font-size: 2em; } }
     </style>
 </head>
 <body>
+    <!-- Updated UI -->
     <div id="ui">
+        <div>Pontuação: <span id="score-ui">0</span></div>
+        <div>Maior Pontuação: <span id="highscore-ui">0</span></div>
+        <div>Nível: <span id="level-ui">1</span></div>
         <div>Assimilação: <span id="assimilation-bar">0</span>%</div>
         <div>Ideias Coletadas: <span id="ideas-collected">0</span> / <span id="ideas-total">?</span></div>
         <div id="pulse-status">Pulso Criativo: PRONTO</div>
@@ -51,24 +60,26 @@
         // --- Game Configuration ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        // UI Elements Cache
         const uiAssimilation = document.getElementById('assimilation-bar');
         const uiIdeasCollected = document.getElementById('ideas-collected');
         const uiIdeasTotal = document.getElementById('ideas-total');
         const uiPulseStatus = document.getElementById('pulse-status');
+        const uiScore = document.getElementById('score-ui');
+        const uiHighScore = document.getElementById('highscore-ui');
+        const uiLevel = document.getElementById('level-ui');
         const messageElement = document.getElementById('message');
 
         // --- AUDIO CONFIGURATION ---
-        const AUDIO_PATHS = { /* ... Same as before ... */
-            backgroundMusic: "audio/cabecao.mp3", pulseEffect: "audio/pulso.mp3", cabecaoGrowth: "audio/cabecacresce.mp3", piolhoChase: "audio/alertapiolho.mp3", // Verify extension based on previous logs
-            ideaCollect: "audio/pegarpensamentos.mp3", // Verify extension based on previous logs
-            winSound: "audio/vitoria.mp3", loseSound: "audio/morreu.mp3"
+        const AUDIO_PATHS = { /* ... Same ... */
+             backgroundMusic: "audio/cabecao.mp3", pulseEffect: "audio/pulso.mp3", cabecaoGrowth: "audio/cabecacresce.mp3", piolhoChase: "audio/alertapiolho.mp3", ideaCollect: "audio/pegarpensamentos.mp3", winSound: "audio/vitoria.mp3", loseSound: "audio/morreu.mp3"
         };
 
         // --- Global State Variables ---
         let player;
         let enemies = [];
         let ideas = [];
-        let mapLayout; // Will be generated by generateRandomMap
+        let mapLayout;
         let assimilation = 0;
         let ideasCollected = 0;
         let totalIdeas = 0;
@@ -82,7 +93,7 @@
         let nextCabecaoTime;
         let cabecaoSizeFactor = 0.2;
         let cabecaoAlphaFactor = 0.1;
-        let gameState = 'playing';
+        let gameState = 'playing'; // playing, gameOver, win, error
         let lastTime = 0;
         let distortionOffset = { x: 0, y: 0 };
         let gameLoopRequestId = null;
@@ -91,280 +102,236 @@
         let bgmSourceNode = null;
         let masterGainNode = null;
 
-        // --- Define Map Size Constants ---
-        const MAP_COLS = 25; // Define the desired width
-        const MAP_ROWS = 15; // Define the desired height
+        // --- Scoring & Difficulty ---
+        let currentScore = 0;
+        let highScore = 0;
+        let difficultyLevel = 1;
+        const HIGH_SCORE_KEY = 'cabecaoHighScore_v1'; // Added v1 to avoid conflicts with old data
+        const POINTS_PER_IDEA = 100;
+        const BASE_ENEMY_COUNT = 4; // Start with fewer enemies initially
+        const ENEMY_INCREASE_PER_LEVEL = 1.2; // Add ~1 enemy per level, increases slightly faster
+        const BASE_INITIAL_WALL_CHANCE = 0.43; // Base chance for map gen
+        const WALL_CHANCE_INCREASE_PER_LEVEL = 0.008; // Make maps slightly denser/more complex per level
+        const MAX_WALL_CHANCE = 0.55; // Cap wall chance
+        const BASE_NUM_IDEAS = 12; // Start with fewer ideas
+        const IDEA_INCREASE_PER_LEVEL = 1; // Add more ideas to collect
 
-        // Canvas dimensions
-        function resizeCanvas() { /* ... Same as before ... */ const aspectRatio = 1000 / 700; let w = window.innerWidth * 0.95; let h = window.innerHeight * 0.95; if (w / h > aspectRatio) { w = h * aspectRatio; } else { h = w / aspectRatio; } canvas.width = Math.min(w, 1000); canvas.height = Math.min(h, 700); }
+
+        // --- Define Map Size Constants ---
+        const MAP_COLS = 25;
+        const MAP_ROWS = 15;
+
+        // Canvas dimensions & Game Constants setup
+        // ... (resizeCanvas, TILE_SIZE etc. remain the same) ...
+        function resizeCanvas() { const aspectRatio = 1000 / 700; let w = window.innerWidth * 0.95; let h = window.innerHeight * 0.95; if (w / h > aspectRatio) { w = h * aspectRatio; } else { h = w / aspectRatio; } canvas.width = Math.min(w, 1000); canvas.height = Math.min(h, 700); }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
-
-        // Game constants (relative sizes)
-        const TILE_SIZE = Math.min(canvas.width / MAP_COLS, canvas.height / MAP_ROWS); // Use MAP_COLS/ROWS here
-        const PLAYER_SIZE = TILE_SIZE * 0.55;
-        const PLAYER_SPEED = TILE_SIZE * 4.75;
-        const PIOLHO_SIZE = TILE_SIZE * 0.5;
-        const PIOLHO_SPEED = TILE_SIZE * 2.375;
-        const PIOLHO_CHASE_SPEED = TILE_SIZE * 3.5;
-        const PIOLHO_VISION_RANGE = TILE_SIZE * 6;
-        const IDEA_SIZE = TILE_SIZE * 0.25;
-        const PULSE_RADIUS = TILE_SIZE * 2.5;
-        const PULSE_DURATION = 0.3;
-        const PULSE_COOLDOWN = 3.5;
-        const ASSIMILATION_PER_SECOND = 0.8;
-        const ASSIMILATION_ON_CONTACT_PER_SECOND = 18;
-        const ASSIMILATION_CABECÃO_BOOST = 2.5;
-        const CABECAO_INTERVAL = 14;
-        const CABECAO_DURATION = 6;
-        const PATH_RECALCULATE_INTERVAL = 0.5;
+        const TILE_SIZE = Math.min(canvas.width / MAP_COLS, canvas.height / MAP_ROWS);
+        const PLAYER_SIZE = TILE_SIZE * 0.55; const PLAYER_SPEED = TILE_SIZE * 4.75; const PIOLHO_SIZE = TILE_SIZE * 0.5; const PIOLHO_SPEED = TILE_SIZE * 2.375; const PIOLHO_CHASE_SPEED = TILE_SIZE * 3.5; const PIOLHO_VISION_RANGE = TILE_SIZE * 6; const IDEA_SIZE = TILE_SIZE * 0.25; const PULSE_RADIUS = TILE_SIZE * 2.5; const PULSE_DURATION = 0.3; const PULSE_COOLDOWN = 3.5; const ASSIMILATION_PER_SECOND = 0.8; const ASSIMILATION_ON_CONTACT_PER_SECOND = 18; const ASSIMILATION_CABECÃO_BOOST = 2.5; const CABECAO_INTERVAL = 14; const CABECAO_DURATION = 6; const PATH_RECALCULATE_INTERVAL = 0.5;
 
         // --- Image Loading ---
-        // ... (Image loading logic remains the same) ...
+        // ... (remains the same) ...
         const cabecaoImage = new Image(); let isCabecaoImageLoaded = false; const imagePath = "cabecao.png";
         cabecaoImage.onload = () => { isCabecaoImageLoaded = true; console.log(`Cabeção image loaded: ${imagePath}`); if (!gameLoopRequestId) { console.log("Image loaded, starting loop."); lastTime = performance.now(); gameLoopRequestId = requestAnimationFrame(gameLoop); } };
         cabecaoImage.onerror = () => { console.error(`Failed image load: "${imagePath}". Check name/location.`); isCabecaoImageLoaded = false; if (!gameLoopRequestId) { console.log("Image failed, starting loop anyway."); lastTime = performance.now(); gameLoopRequestId = requestAnimationFrame(gameLoop); } };
         if (imagePath) { console.log(`Attempting image load: ${imagePath}`); cabecaoImage.src = imagePath; } else { console.warn("No image path. Cabeção won't load."); isCabecaoImageLoaded = false; if (!gameLoopRequestId) { console.log("No image, starting loop."); lastTime = performance.now(); gameLoopRequestId = requestAnimationFrame(gameLoop); } }
 
+
         // --- Audio Handling ---
-        // ... (Audio functions remain the same) ...
+        // ... (remains the same) ...
         function initAudioContext() { if (audioContext) return; try { window.AudioContext = window.AudioContext || window.webkitAudioContext; if (!window.AudioContext) { console.warn("Web Audio API not supported."); return; } audioContext = new AudioContext(); masterGainNode = audioContext.createGain(); masterGainNode.connect(audioContext.destination); masterGainNode.gain.value = 0.7; if (audioContext.state === 'suspended') { console.log("AudioContext suspended. Resume on interaction."); } console.log("AudioContext initialized."); loadAllSounds(); } catch (e) { console.error("Error initializing AudioContext:", e); audioContext = null; } }
         function resumeAudioContext() { if (audioContext && audioContext.state === 'suspended') { audioContext.resume().then(() => { console.log("AudioContext resumed."); if (!bgmSourceNode && soundBuffers.backgroundMusic && gameState === 'playing') { playSound('backgroundMusic', true); } }).catch(e => console.error("Error resuming AudioContext:", e)); } }
         async function loadSound(url, name) { if (!audioContext) { return; } if (!url) { return; } if (soundBuffers[name]) { return soundBuffers[name]; } console.log(`Loading sound: ${name} from ${url}`); try { const response = await fetch(url); if (!response.ok) { throw new Error(`HTTP error! status: ${response.status} for ${url}`); } const arrayBuffer = await response.arrayBuffer(); const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer); soundBuffers[name] = decodedBuffer; console.log(`Sound loaded: ${name}`); return decodedBuffer; } catch (error) { console.error(`Error loading sound ${name} from ${url}:`, error); soundBuffers[name] = null; return null; } }
         function loadAllSounds() { if (!audioContext) return; console.log("Loading all sounds..."); for (const name in AUDIO_PATHS) { loadSound(AUDIO_PATHS[name], name); } }
-        function playSound(name, loop = false, volume = 1.0) { if (!audioContext || audioContext.state !== 'running') { console.warn(`Cannot play sound "${name}", AC not ready.`); resumeAudioContext(); return null; } const buffer = soundBuffers[name]; if (!buffer) { console.warn(`Sound buffer "${name}" not found.`); return null; } try { const source = audioContext.createBufferSource(); source.buffer = buffer; source.loop = loop; const gainNode = audioContext.createGain(); gainNode.gain.value = volume; source.connect(gainNode); gainNode.connect(masterGainNode); source.start(0); if (loop && name === 'backgroundMusic') { if (bgmSourceNode) { try { bgmSourceNode.stop(); } catch(e) {} } bgmSourceNode = source; console.log("BGM started."); } return source; } catch (error) { console.error(`Error playing sound ${name}:`, error); return null; } }
+        function playSound(name, loop = false, volume = 1.0) { if (!audioContext || audioContext.state !== 'running') { /* console.warn(`Cannot play sound "${name}", AC not ready.`); */ resumeAudioContext(); return null; } const buffer = soundBuffers[name]; if (!buffer) { console.warn(`Sound buffer "${name}" not found.`); return null; } try { const source = audioContext.createBufferSource(); source.buffer = buffer; source.loop = loop; const gainNode = audioContext.createGain(); gainNode.gain.value = volume; source.connect(gainNode); gainNode.connect(masterGainNode); source.start(0); if (loop && name === 'backgroundMusic') { if (bgmSourceNode) { try { bgmSourceNode.stop(); } catch(e) {} } bgmSourceNode = source; console.log("BGM started."); } return source; } catch (error) { console.error(`Error playing sound ${name}:`, error); return null; } }
         function stopSound(sourceNode) { if (sourceNode) { try { sourceNode.stop(); } catch (e) { console.warn("Error stopping sound:", e); } } }
         function stopBackgroundMusic() { if (bgmSourceNode) { console.log("Stopping BGM."); stopSound(bgmSourceNode); bgmSourceNode = null; } }
 
 
         // --- Random Map Generation ---
-
         const GENERATION_PARAMS = {
-            initialWallChance: 0.45, // Probability of a cell starting as a wall
-            simulationSteps: 4,      // Number of smoothing iterations
-            birthThreshold: 5,       // A floor becomes a wall if it has > this many wall neighbors
-            survivalThreshold: 4     // A wall stays a wall if it has >= this many wall neighbors
+            // initialWallChance: 0.45, // Now calculated based on difficulty
+            simulationSteps: 4,
+            birthThreshold: 5,
+            survivalThreshold: 4
         };
+        function countWallNeighbors(grid, r, c) { /* ... Same ... */ let count = 0; for (let i = -1; i <= 1; i++) { for (let j = -1; j <= 1; j++) { if (i === 0 && j === 0) continue; const nr = r + i; const nc = c + j; if (nr < 0 || nr >= MAP_ROWS || nc < 0 || nc >= MAP_COLS) { count++; } else if (grid[nr] && grid[nr][nc] === 1) { count++; } } } return count; }
 
-        function countWallNeighbors(grid, r, c) {
-            let count = 0;
-            for (let i = -1; i <= 1; i++) {
-                for (let j = -1; j <= 1; j++) {
-                    if (i === 0 && j === 0) continue; // Skip self
-
-                    const nr = r + i;
-                    const nc = c + j;
-
-                    // If out of bounds, count as a wall (helps solidify edges)
-                    if (nr < 0 || nr >= MAP_ROWS || nc < 0 || nc >= MAP_COLS) {
-                        count++;
-                    } else if (grid[nr][nc] === 1) {
-                        count++;
-                    }
-                }
-            }
-            return count;
-        }
-
-        function generateRandomMap(rows, cols) {
-            console.log("Generating random map...");
+        // Accepts initialWallChance as parameter
+        function generateRandomMap(rows, cols, initialWallChance) {
+            console.log(`Generating random map (Wall Chance: ${initialWallChance.toFixed(3)})...`);
             let grid = [];
-
-            // 1. Initialize with noise and borders
-            for (let r = 0; r < rows; r++) {
-                grid[r] = [];
-                for (let c = 0; c < cols; c++) {
-                    if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
-                        grid[r][c] = 1; // Border wall
-                    } else {
-                        grid[r][c] = (Math.random() < GENERATION_PARAMS.initialWallChance) ? 1 : 0;
-                    }
-                }
-            }
-
-            // 2. Run simulation steps
-            let newGrid = []; // Create outside the loop
-            for (let step = 0; step < GENERATION_PARAMS.simulationSteps; step++) {
-                // Initialize newGrid for this step (deep copy might be safer for complex objects, but fine here)
-                 for(let r=0; r<rows; r++) { newGrid[r] = [...grid[r]]; } // Copy row by row
-
-                for (let r = 1; r < rows - 1; r++) { // Iterate excluding borders
-                    for (let c = 1; c < cols - 1; c++) {
-                        const neighbors = countWallNeighbors(grid, r, c);
-                        if (grid[r][c] === 1) { // If it's a wall
-                            if (neighbors < GENERATION_PARAMS.survivalThreshold) {
-                                newGrid[r][c] = 0; // Dies of isolation
-                            }
-                        } else { // If it's floor
-                            if (neighbors > GENERATION_PARAMS.birthThreshold) {
-                                newGrid[r][c] = 1; // Born from neighbours
-                            }
-                        }
-                    }
-                }
-                grid = newGrid; // Update grid for the next step
-                newGrid = []; // Reset newGrid for next iteration's copy
-            }
-
-            // 3. Ensure connectivity (Flood Fill)
-            let startNode = null;
-            // Find the first available floor tile to start the flood fill
-            for (let r = 1; r < rows - 1; r++) {
-                for (let c = 1; c < cols - 1; c++) {
-                    if (grid[r][c] === 0) {
-                        startNode = { r, c };
-                        break;
-                    }
-                }
-                if (startNode) break;
-            }
-
-            if (!startNode) {
-                console.warn("Map generation failed: No floor tiles found. Retrying...");
-                // Optional: Could implement a retry limit
-                return generateRandomMap(rows, cols); // Retry generation
-            }
-
-            const visited = new Set();
-            const queue = [startNode];
-            visited.add(`${startNode.r}_${startNode.c}`);
-
-            while (queue.length > 0) {
-                const { r, c } = queue.shift();
-
-                // Check neighbors (Up, Down, Left, Right)
-                const neighborsCoords = [ {r: r-1, c: c}, {r: r+1, c: c}, {r: r, c: c-1}, {r: r, c: c+1} ];
-
-                for (const neighbor of neighborsCoords) {
-                    const nr = neighbor.r;
-                    const nc = neighbor.c;
-                    const key = `${nr}_${nc}`;
-
-                    // Check bounds, if it's floor, and not visited
-                    if (nr > 0 && nr < rows - 1 && nc > 0 && nc < cols - 1 && // Stay within inner bounds
-                        grid[nr][nc] === 0 && !visited.has(key))
-                    {
-                        visited.add(key);
-                        queue.push({ r: nr, c: nc });
-                    }
-                }
-            }
-
-            // Turn unvisited floor tiles into walls
-            let floorCount = 0;
-            for (let r = 1; r < rows - 1; r++) {
-                for (let c = 1; c < cols - 1; c++) {
-                    if (grid[r][c] === 0 && !visited.has(`${r}_${c}`)) {
-                        grid[r][c] = 1; // Make inaccessible floor into a wall
-                    } else if (grid[r][c] === 0) {
-                         floorCount++;
-                    }
-                }
-            }
-
-             // Optional: Check if enough floor space remains
-             const minFloorPercent = 0.30; // Require at least 30% floor
-             const totalInnerTiles = (rows - 2) * (cols - 2);
-             if (floorCount / totalInnerTiles < minFloorPercent) {
-                 console.warn(`Map generation failed: Not enough floor space (${(floorCount / totalInnerTiles * 100).toFixed(1)}%). Retrying...`);
-                 return generateRandomMap(rows, cols); // Retry
-             }
-
-            console.log("Random map generated successfully.");
+            for (let r = 0; r < rows; r++) { grid[r] = []; for (let c = 0; c < cols; c++) { if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) { grid[r][c] = 1; } else { grid[r][c] = (Math.random() < initialWallChance) ? 1 : 0; } } }
+            let newGrid = []; for (let step = 0; step < GENERATION_PARAMS.simulationSteps; step++) { for(let r=0; r<rows; r++) { newGrid[r] = [...grid[r]]; } for (let r = 1; r < rows - 1; r++) { for (let c = 1; c < cols - 1; c++) { const neighbors = countWallNeighbors(grid, r, c); if (grid[r][c] === 1) { if (neighbors < GENERATION_PARAMS.survivalThreshold) { newGrid[r][c] = 0; } } else { if (neighbors > GENERATION_PARAMS.birthThreshold) { newGrid[r][c] = 1; } } } } grid = newGrid; newGrid = []; }
+            let startNode = null; for (let r = 1; r < rows - 1; r++) { for (let c = 1; c < cols - 1; c++) { if (grid[r][c] === 0) { startNode = { r, c }; break; } } if (startNode) break; } if (!startNode) { console.warn("Map gen failed: No floor tiles. Retrying..."); return generateRandomMap(rows, cols, initialWallChance); } const visited = new Set(); const queue = [startNode]; visited.add(`${startNode.r}_${startNode.c}`); while (queue.length > 0) { const { r, c } = queue.shift(); const neighborsCoords = [ {r: r-1, c: c}, {r: r+1, c: c}, {r: r, c: c-1}, {r: r, c: c+1} ]; for (const neighbor of neighborsCoords) { const nr = neighbor.r; const nc = neighbor.c; const key = `${nr}_${nc}`; if (nr > 0 && nr < rows - 1 && nc > 0 && nc < cols - 1 && grid[nr][nc] === 0 && !visited.has(key)) { visited.add(key); queue.push({ r: nr, c: nc }); } } }
+            let floorCount = 0; for (let r = 1; r < rows - 1; r++) { for (let c = 1; c < cols - 1; c++) { if (grid[r][c] === 0 && !visited.has(`${r}_${c}`)) { grid[r][c] = 1; } else if (grid[r][c] === 0) { floorCount++; } } }
+            const minFloorPercent = 0.30; const totalInnerTiles = (rows - 2) * (cols - 2); if (floorCount === 0 || floorCount / totalInnerTiles < minFloorPercent) { console.warn(`Map gen failed: Not enough floor (${(floorCount / totalInnerTiles * 100).toFixed(1)}%). Retrying...`); return generateRandomMap(rows, cols, initialWallChance); }
+            console.log("Random map generated.");
             return grid;
         }
 
 
         // --- A* Pathfinding ---
-        // ... (A* functions remain the same) ...
+        // ... (remains the same) ...
         function heuristic(nodeA, nodeB) { return Math.abs(nodeA.x - nodeB.x) + Math.abs(nodeA.y - nodeB.y); } function AStarNode(x, y, g = Infinity, h = Infinity, parent = null) { this.x = x; this.y = y; this.g = g; this.h = h; this.f = g + h; this.parent = parent; } function findPath(startX, startY, endX, endY) { if (!mapLayout) return null; const startNode = new AStarNode(startX, startY, 0, heuristic({x: startX, y: startY}, {x: endX, y: endY})); const endNodeCoords = { x: endX, y: endY }; let openList = [startNode]; let closedList = new Set(); while (openList.length > 0) { openList.sort((a, b) => a.f - b.f); let currentNode = openList.shift(); if (currentNode.x === endNodeCoords.x && currentNode.y === endNodeCoords.y) { let path = []; let temp = currentNode; while (temp !== null) { path.push({ x: temp.x, y: temp.y }); temp = temp.parent; } return path.reverse(); } closedList.add(`${currentNode.x}_${currentNode.y}`); const neighborsCoords = [ { x: currentNode.x, y: currentNode.y - 1 }, { x: currentNode.x, y: currentNode.y + 1 }, { x: currentNode.x - 1, y: currentNode.y }, { x: currentNode.x + 1, y: currentNode.y } ]; for (const neighborCoord of neighborsCoords) { const nx = neighborCoord.x; const ny = neighborCoord.y; const neighborKey = `${nx}_${ny}`; if (nx < 0 || nx >= MAP_COLS || ny < 0 || ny >= MAP_ROWS || isWall(nx, ny) || closedList.has(neighborKey)) { continue; } const tentativeG = currentNode.g + 1; let neighborNode = openList.find(node => node.x === nx && node.y === ny); let isInOpenList = !!neighborNode; if (!isInOpenList || tentativeG < neighborNode.g) { if (!isInOpenList) { neighborNode = new AStarNode(nx, ny); openList.push(neighborNode); } neighborNode.parent = currentNode; neighborNode.g = tentativeG; neighborNode.h = heuristic(neighborCoord, endNodeCoords); neighborNode.f = neighborNode.g + neighborNode.h; } } } return null; }
 
-
         // --- Game Objects ---
-        // ... (createPlayer, createEnemy, createIdea functions remain the same) ...
+        // ... (remains the same) ...
         function createPlayer(x, y) { return { x: x, y: y, width: PLAYER_SIZE, height: PLAYER_SIZE, color: '#cccccc', speed: PLAYER_SPEED, isCollidingWithPiolho: false }; } function createEnemy(x, y) { return { x: x, y: y, width: PIOLHO_SIZE, height: PIOLHO_SIZE, color: '#900000', chaseColor: '#cc0000', stunColor: '#555555', speed: PIOLHO_SPEED, state: 'patrol', patrolTargetX: x, patrolTargetY: y, targetX: x, targetY: y, stunTimer: 0, moveCooldown: 0, path: null, pathRecalculateTimer: Math.random() * PATH_RECALCULATE_INTERVAL, chaseSoundPlayed: false }; } function createIdea(x, y) { totalIdeas++; return { x: x, y: y, size: IDEA_SIZE, baseColor: `hsl(60, 100%, ${80 + Math.random() * 15}%)`, flickerColor: 'rgba(255, 255, 255, 0.9)', collected: false, pulseSpeed: Math.random() * 1.5 + 0.5, pulseOffset: Math.random() * Math.PI * 2 }; }
 
-
         // --- Input Handling ---
-        // ... (setupInputListeners function remains the same) ...
+        // ... (remains the same) ...
         function setupInputListeners() { const interactionHandler = () => { initAudioContext(); resumeAudioContext(); }; window.addEventListener('keydown', interactionHandler, { once: true }); window.addEventListener('touchstart', interactionHandler, { once: true }); window.addEventListener('keydown', (e) => { const key = e.key.toUpperCase(); keys[key] = true; if ((gameState === 'gameOver' || gameState === 'win') && key === 'E') { initGame(); } if(['ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT', ' ', 'W', 'A', 'S', 'D', 'E'].includes(key)) { e.preventDefault(); } }); window.addEventListener('keyup', (e) => { keys[e.key.toUpperCase()] = false; }); const touchButtons = document.querySelectorAll('.touch-button'); touchButtons.forEach(button => { button.addEventListener('touchstart', (e) => { e.preventDefault(); const id = button.id; if (id === 'btn-up') touchControls.up = true; else if (id === 'btn-down') touchControls.down = true; else if (id === 'btn-left') touchControls.left = true; else if (id === 'btn-right') touchControls.right = true; else if (id === 'btn-pulse') touchControls.pulse = true; button.classList.add('active'); resumeAudioContext(); }, { passive: false }); button.addEventListener('touchend', (e) => { e.preventDefault(); const id = button.id; if (id === 'btn-up') touchControls.up = false; else if (id === 'btn-down') touchControls.down = false; else if (id === 'btn-left') touchControls.left = false; else if (id === 'btn-right') touchControls.right = false; else if (id === 'btn-pulse') touchControls.pulse = false; button.classList.remove('active'); }); button.addEventListener('touchcancel', (e) => { handleTouchEnd(button); }); button.addEventListener('touchmove', (e) => { const touch = e.touches[0]; const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY); if (elementUnderTouch !== button) { handleTouchEnd(button); } }); }); function handleTouchEnd(button) { const id = button.id; if (id === 'btn-up') touchControls.up = false; else if (id === 'btn-down') touchControls.down = false; else if (id === 'btn-left') touchControls.left = false; else if (id === 'btn-right') touchControls.right = false; else if (id === 'btn-pulse') touchControls.pulse = false; button.classList.remove('active'); } messageElement.addEventListener('touchstart', (e) => { if (gameState === 'gameOver' || gameState === 'win') { e.preventDefault(); initGame(); resumeAudioContext(); } }, { passive: false }); }
 
-
         // --- Collision & Map Utilities ---
-        // isWall needs to check the dynamically generated mapLayout
-        function isWall(gridX, gridY) {
-             if (!mapLayout) return true; // Map not generated yet
-             if (gridX < 0 || gridX >= MAP_COLS || gridY < 0 || gridY >= MAP_ROWS) { return true; } // Out of bounds is wall
-             // Check the generated map
-             // Add safety check for potentially undefined rows/cols during generation/access issues
-             if (!mapLayout[gridY] || mapLayout[gridY][gridX] === undefined) {
-                 // console.warn(`Accessing potentially undefined map tile at ${gridX}, ${gridY}`);
-                 return true; // Treat undefined as wall
-             }
-             return mapLayout[gridY][gridX] === 1;
-         }
-        // ... (getGridCoords, getPixelCenterFromGrid, checkCollision, etc., remain the same) ...
-        function getGridCoords(pixelX, pixelY) { return { x: Math.floor(pixelX / TILE_SIZE), y: Math.floor(pixelY / TILE_SIZE) }; } function getPixelCenterFromGrid(gridX, gridY) { return { x: gridX * TILE_SIZE + TILE_SIZE / 2, y: gridY * TILE_SIZE + TILE_SIZE / 2 }; } function checkCollision(rect1, rect2) { return rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y; } function checkCircleRectCollision(circle, rect) { let closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.width)); let closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.height)); let distanceX = circle.x - closestX; let distanceY = circle.y - closestY; let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY); return distanceSquared < (circle.radius * circle.radius); } function checkCircleCollision(circle1, circle2) { const dx = circle1.x - circle2.x; const dy = circle1.y - circle2.y; const distance = Math.sqrt(dx * dx + dy * dy); return distance < circle1.radius + circle2.radius; }
-
+        // ... (isWall, getGridCoords, etc. remain the same) ...
+         function isWall(gridX, gridY) { if (!mapLayout) return true; if (gridX < 0 || gridX >= MAP_COLS || gridY < 0 || gridY >= MAP_ROWS) { return true; } if (!mapLayout[gridY] || mapLayout[gridY][gridX] === undefined) { return true; } return mapLayout[gridY][gridX] === 1; } function getGridCoords(pixelX, pixelY) { return { x: Math.floor(pixelX / TILE_SIZE), y: Math.floor(pixelY / TILE_SIZE) }; } function getPixelCenterFromGrid(gridX, gridY) { return { x: gridX * TILE_SIZE + TILE_SIZE / 2, y: gridY * TILE_SIZE + TILE_SIZE / 2 }; } function checkCollision(rect1, rect2) { return rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y; } function checkCircleRectCollision(circle, rect) { let closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.width)); let closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.height)); let distanceX = circle.x - closestX; let distanceY = circle.y - closestY; let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY); return distanceSquared < (circle.radius * circle.radius); } function checkCircleCollision(circle1, circle2) { const dx = circle1.x - circle2.x; const dy = circle1.y - circle2.y; const distance = Math.sqrt(dx * dx + dy * dy); return distance < circle1.radius + circle2.radius; }
 
         // --- Game Logic ---
-        // ... (updatePlayer, updateEnemies, updateIdeas, updateAssimilation, updateCabecao, checkGameCollisions functions remain the same) ...
-        function updatePlayer(deltaTime) { let dx = 0; let dy = 0; if (keys['ARROWLEFT'] || keys['A'] || touchControls.left) dx -= 1; if (keys['ARROWRIGHT'] || keys['D'] || touchControls.right) dx += 1; if (keys['ARROWUP'] || keys['W'] || touchControls.up) dy -= 1; if (keys['ARROWDOWN'] || keys['S'] || touchControls.down) dy += 1; if (dx !== 0 && dy !== 0) { const length = Math.sqrt(dx * dx + dy * dy); dx = (dx / length); dy = (dy / length); } const moveSpeed = player.speed * deltaTime; let targetX = player.x + dx * moveSpeed; let targetY = player.y + dy * moveSpeed; const playerRect = { x: targetX, y: targetY, width: player.width, height: player.height }; let tempRectX = { ...playerRect, y: player.y }; let collisionX = false; const gridStartX = Math.floor(tempRectX.x / TILE_SIZE); const gridEndX = Math.floor((tempRectX.x + tempRectX.width) / TILE_SIZE); const gridStartY = Math.floor(tempRectX.y / TILE_SIZE); const gridEndY = Math.floor((tempRectX.y + tempRectX.height) / TILE_SIZE); for (let y = gridStartY; y <= gridEndY; y++) { for (let x = gridStartX; x <= gridEndX; x++) { if (isWall(x, y)) { const wallRect = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE }; if (checkCollision(tempRectX, wallRect)) { collisionX = true; targetX = player.x; break; } } } if (collisionX) break; } if (!collisionX) player.x = targetX; let tempRectY = { ...playerRect, x: player.x }; let collisionY = false; const gridStartX2 = Math.floor(tempRectY.x / TILE_SIZE); const gridEndX2 = Math.floor((tempRectY.x + tempRectY.width) / TILE_SIZE); const gridStartY2 = Math.floor(tempRectY.y / TILE_SIZE); const gridEndY2 = Math.floor((tempRectY.y + tempRectY.height) / TILE_SIZE); for (let y = gridStartY2; y <= gridEndY2; y++) { for (let x = gridStartX2; x <= gridEndX2; x++) { if (isWall(x, y)) { const wallRect = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE }; if (checkCollision(tempRectY, wallRect)) { collisionY = true; targetY = player.y; break; } } } if (collisionY) break; } if (!collisionY) player.y = targetY; if ((keys[' '] || touchControls.pulse) && !creativePulseActive && creativePulseCooldownTimer <= 0) { creativePulseActive = true; creativePulseTimer = PULSE_DURATION; creativePulseCooldownTimer = PULSE_COOLDOWN; uiPulseStatus.textContent = 'Pulso ATIVO!'; uiPulseStatus.style.color = '#ffffff'; playSound('pulseEffect'); } if (creativePulseActive) { creativePulseTimer -= deltaTime; if (creativePulseTimer <= 0) { creativePulseActive = false; } } if (creativePulseCooldownTimer > 0) { creativePulseCooldownTimer -= deltaTime; if (!creativePulseActive && creativePulseCooldownTimer > 0) { uiPulseStatus.textContent = `Recarregando (${creativePulseCooldownTimer.toFixed(1)}s)`; uiPulseStatus.style.color = '#ff9999'; } if (creativePulseCooldownTimer <= 0) { uiPulseStatus.textContent = 'Pulso PRONTO'; uiPulseStatus.style.color = '#99ffff'; } } }
-        function updateEnemies(deltaTime) { if (!player) return; const playerGridPos = getGridCoords(player.x + player.width / 2, player.y + player.height / 2); enemies.forEach(enemy => { if (enemy.stunTimer > 0) { enemy.stunTimer -=deltaTime; enemy.color = enemy.stunColor; enemy.chaseSoundPlayed = false; enemy.path = null; return; } else if (enemy.state === 'chase') { enemy.color = enemy.chaseColor; } else { enemy.color = '#900000'; enemy.chaseSoundPlayed = false; } if (enemy.moveCooldown > 0) { enemy.moveCooldown -= deltaTime; } const dxPlayer = player.x - enemy.x; const dyPlayer = player.y - enemy.y; const distPlayer = Math.sqrt(dxPlayer * dxPlayer + dyPlayer * dyPlayer); const enemyGridPos = getGridCoords(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2); if (distPlayer < PIOLHO_VISION_RANGE && enemy.moveCooldown <= 0 && enemy.stunTimer <= 0) { if (enemy.state !== 'chase') { enemy.state = 'chase'; enemy.pathRecalculateTimer = 0; enemy.path = null; if (!enemy.chaseSoundPlayed) { playSound('piolhoChase'); enemy.chaseSoundPlayed = true; } } } else if (enemy.state === 'chase') { if (distPlayer > PIOLHO_VISION_RANGE * 1.3) { enemy.state = 'patrol'; enemy.path = null; enemy.patrolTargetX = enemy.x; enemy.patrolTargetY = enemy.y; } } let targetX, targetY, currentSpeed; if (enemy.state === 'chase' && enemy.stunTimer <= 0 && enemy.moveCooldown <= 0) { currentSpeed = PIOLHO_CHASE_SPEED; enemy.pathRecalculateTimer -= deltaTime; if (enemy.pathRecalculateTimer <= 0) { enemy.pathRecalculateTimer = PATH_RECALCULATE_INTERVAL; enemy.path = findPath(enemyGridPos.x, enemyGridPos.y, playerGridPos.x, playerGridPos.y); if (enemy.path && enemy.path.length > 0) { enemy.path.shift(); } } if (enemy.path && enemy.path.length > 0) { const nextNode = enemy.path[0]; const targetPixelPos = getPixelCenterFromGrid(nextNode.x, nextNode.y); targetX = targetPixelPos.x; targetY = targetPixelPos.y; const dxTarget = targetX - (enemy.x + enemy.width / 2); const dyTarget = targetY - (enemy.y + enemy.height / 2); const distTarget = Math.sqrt(dxTarget * dxTarget + dyTarget * dyTarget); if (distTarget < TILE_SIZE * 0.3) { enemy.path.shift(); if (enemy.path.length > 0) { const newNextNode = enemy.path[0]; const newTargetPixelPos = getPixelCenterFromGrid(newNextNode.x, newNextNode.y); targetX = newTargetPixelPos.x; targetY = newTargetPixelPos.y; } else { targetX = player.x + player.width / 2; targetY = player.y + player.height / 2; enemy.pathRecalculateTimer = 0; } } } else { targetX = player.x + player.width / 2; targetY = player.y + player.height / 2; } } else { currentSpeed = PIOLHO_SPEED; enemy.path = null; const distToPatrolTarget = Math.sqrt(Math.pow(enemy.patrolTargetX - (enemy.x + enemy.width/2), 2) + Math.pow(enemy.patrolTargetY - (enemy.y + enemy.height/2), 2)); if (distToPatrolTarget < TILE_SIZE * 0.6 || enemy.patrolTargetX === enemy.x) { let foundNewTarget = false; let attempts = 0; while (!foundNewTarget && attempts < 10) { attempts++; const angle = Math.random() * Math.PI * 2; const distance = TILE_SIZE * (Math.random() * 4 + 2); const potentialX = enemy.x + Math.cos(angle) * distance; const potentialY = enemy.y + Math.sin(angle) * distance; const gridCoords = getGridCoords(potentialX, potentialY); if (!isWall(gridCoords.x, gridCoords.y)) { enemy.patrolTargetX = potentialX; enemy.patrolTargetY = potentialY; foundNewTarget = true; } } if (!foundNewTarget) { enemy.patrolTargetX = enemy.x; enemy.patrolTargetY = enemy.y; } } targetX = enemy.patrolTargetX; targetY = enemy.patrolTargetY; } if (enemy.stunTimer <= 0 && enemy.moveCooldown <= 0 && targetX !== undefined) { const dxMove = targetX - (enemy.x + enemy.width / 2); const dyMove = targetY - (enemy.y + enemy.height / 2); const distMove = Math.sqrt(dxMove * dxMove + dyMove * dyMove); if (distMove > 5) { const moveX = (dxMove / distMove) * currentSpeed * deltaTime; const moveY = (dyMove / distMove) * currentSpeed * deltaTime; let nextX = enemy.x + moveX; let nextY = enemy.y + moveY; const nextGrid = getGridCoords(nextX + enemy.width / 2, nextY + enemy.height / 2); if (!isWall(nextGrid.x, nextGrid.y)) { enemy.x = nextX; enemy.y = nextY; } else { const gridXOnly = getGridCoords(nextX + enemy.width / 2, enemy.y + enemy.height / 2); if (!isWall(gridXOnly.x, gridXOnly.y)) { enemy.x = nextX; } else { const gridYOnly = getGridCoords(enemy.x + enemy.width / 2, nextY + enemy.height / 2); if (!isWall(gridYOnly.x, gridYOnly.y)) { enemy.y = nextY; } else { if (enemy.state === 'patrol') { enemy.patrolTargetX = enemy.x; enemy.patrolTargetY = enemy.y; } } } } } } }); }
-        function updateIdeas(deltaTime) { ideas.forEach(idea => { if (!idea.collected) { idea.pulseOffset += idea.pulseSpeed * deltaTime; } }); }
-        function updateAssimilation(deltaTime) { if (!player) return; let assimilationRate = ASSIMILATION_PER_SECOND; if (cabecaoEffectActive) { assimilationRate *= ASSIMILATION_CABECÃO_BOOST; } if (player.isCollidingWithPiolho) { assimilationRate += ASSIMILATION_ON_CONTACT_PER_SECOND; } assimilation += assimilationRate * deltaTime; assimilation = Math.min(assimilation, 100); uiAssimilation.textContent = Math.floor(assimilation); cabecaoSizeFactor = 0.2 + Math.pow(assimilation / 100, 2) * 1.5; cabecaoAlphaFactor = 0.05 + Math.pow(assimilation / 100, 1.5) * 0.8; if (assimilation >= 100 && gameState === 'playing') { gameState = 'gameOver'; messageElement.textContent = "VOCÊ FOI ASSIMILADO!\nPressione 'E' ou TOQUE AQUI para tentar novamente na Lerda Dimensão."; messageElement.style.display = 'block'; stopBackgroundMusic(); playSound('loseSound'); } }
-        function updateCabecao(deltaTime) { nextCabecaoTime -= deltaTime; if (nextCabecaoTime <= 0 && !cabecaoEffectActive) { cabecaoEffectActive = true; cabecaoEffectTimer = CABECAO_DURATION; nextCabecaoTime = CABECAO_INTERVAL + Math.random() * 4 - 1; playSound('cabecaoGrowth'); } if (cabecaoEffectActive) { cabecaoEffectTimer -= deltaTime; const distortionAmount = (assimilation / 100) * 15 + 2; distortionOffset.x = (Math.random() - 0.5) * distortionAmount; distortionOffset.y = (Math.random() - 0.5) * distortionAmount; if (cabecaoEffectTimer <= 0) { cabecaoEffectActive = false; distortionOffset.x = 0; distortionOffset.y = 0; } } else { distortionOffset.x = 0; distortionOffset.y = 0; } }
-        function checkGameCollisions() { if (!player) return; player.isCollidingWithPiolho = false; const playerCenterX = player.x + player.width / 2; const playerCenterY = player.y + player.height / 2; ideas.forEach(idea => { if (!idea.collected) { const dx = playerCenterX - idea.x; const dy = playerCenterY - idea.y; const dist = Math.sqrt(dx * dx + dy * dy); if (dist < player.width / 2 + idea.size) { idea.collected = true; ideasCollected++; uiIdeasCollected.textContent = ideasCollected; playSound('ideaCollect'); if (ideasCollected === totalIdeas && gameState === 'playing') { gameState = 'win'; messageElement.textContent = "VOCÊ RESISTIU!\nOs pensamentos estão livres... por enquanto.\nPressione 'E' ou TOQUE AQUI para jogar novamente."; messageElement.style.display = 'block'; stopBackgroundMusic(); playSound('winSound'); } } } }); const pulseCircle = { x: playerCenterX, y: playerCenterY, radius: PULSE_RADIUS }; enemies.forEach(enemy => { const enemyRect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }; const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height }; if (checkCollision(playerRect, enemyRect) && enemy.stunTimer <= 0) { player.isCollidingWithPiolho = true; } if (creativePulseActive && enemy.stunTimer <= 0) { const enemyCenter = { x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2, radius: enemy.width / 2 }; if (checkCircleCollision(pulseCircle, enemyCenter)) { const pushDx = enemy.x - player.x; const pushDy = enemy.y - player.y; const pushDist = Math.sqrt(pushDx * pushDx + pushDy * pushDy); const pushForce = TILE_SIZE * 1.8; if (pushDist > 0) { enemy.x += (pushDx / pushDist) * pushForce; enemy.y += (pushDy / pushDist) * pushForce; } enemy.stunTimer = 0.9; enemy.moveCooldown = 1.2; enemy.state = 'patrol'; enemy.path = null; enemy.chaseSoundPlayed = false; } } }); }
+        // ... (updatePlayer, updateEnemies, updateIdeas, updateCabecao remain the same) ...
+        function updatePlayer(deltaTime) { /* ... Same ... */ let dx = 0; let dy = 0; if (keys['ARROWLEFT'] || keys['A'] || touchControls.left) dx -= 1; if (keys['ARROWRIGHT'] || keys['D'] || touchControls.right) dx += 1; if (keys['ARROWUP'] || keys['W'] || touchControls.up) dy -= 1; if (keys['ARROWDOWN'] || keys['S'] || touchControls.down) dy += 1; if (dx !== 0 && dy !== 0) { const length = Math.sqrt(dx * dx + dy * dy); dx = (dx / length); dy = (dy / length); } const moveSpeed = player.speed * deltaTime; let targetX = player.x + dx * moveSpeed; let targetY = player.y + dy * moveSpeed; const playerRect = { x: targetX, y: targetY, width: player.width, height: player.height }; let tempRectX = { ...playerRect, y: player.y }; let collisionX = false; const gridStartX = Math.floor(tempRectX.x / TILE_SIZE); const gridEndX = Math.floor((tempRectX.x + tempRectX.width) / TILE_SIZE); const gridStartY = Math.floor(tempRectX.y / TILE_SIZE); const gridEndY = Math.floor((tempRectX.y + tempRectX.height) / TILE_SIZE); for (let y = gridStartY; y <= gridEndY; y++) { for (let x = gridStartX; x <= gridEndX; x++) { if (isWall(x, y)) { const wallRect = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE }; if (checkCollision(tempRectX, wallRect)) { collisionX = true; targetX = player.x; break; } } } if (collisionX) break; } if (!collisionX) player.x = targetX; let tempRectY = { ...playerRect, x: player.x }; let collisionY = false; const gridStartX2 = Math.floor(tempRectY.x / TILE_SIZE); const gridEndX2 = Math.floor((tempRectY.x + tempRectY.width) / TILE_SIZE); const gridStartY2 = Math.floor(tempRectY.y / TILE_SIZE); const gridEndY2 = Math.floor((tempRectY.y + tempRectY.height) / TILE_SIZE); for (let y = gridStartY2; y <= gridEndY2; y++) { for (let x = gridStartX2; x <= gridEndX2; x++) { if (isWall(x, y)) { const wallRect = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE }; if (checkCollision(tempRectY, wallRect)) { collisionY = true; targetY = player.y; break; } } } if (collisionY) break; } if (!collisionY) player.y = targetY; if ((keys[' '] || touchControls.pulse) && !creativePulseActive && creativePulseCooldownTimer <= 0) { creativePulseActive = true; creativePulseTimer = PULSE_DURATION; creativePulseCooldownTimer = PULSE_COOLDOWN; playSound('pulseEffect'); updateUI(); } if (creativePulseActive) { creativePulseTimer -= deltaTime; if (creativePulseTimer <= 0) { creativePulseActive = false; } } if (creativePulseCooldownTimer > 0) { creativePulseCooldownTimer -= deltaTime; updateUI(); if (creativePulseCooldownTimer <= 0) { updateUI(); } } }
+        function updateEnemies(deltaTime) { /* ... Same ... */ if (!player) return; const playerGridPos = getGridCoords(player.x + player.width / 2, player.y + player.height / 2); enemies.forEach(enemy => { if (enemy.stunTimer > 0) { enemy.stunTimer -=deltaTime; enemy.color = enemy.stunColor; enemy.chaseSoundPlayed = false; enemy.path = null; return; } else if (enemy.state === 'chase') { enemy.color = enemy.chaseColor; } else { enemy.color = '#900000'; enemy.chaseSoundPlayed = false; } if (enemy.moveCooldown > 0) { enemy.moveCooldown -= deltaTime; } const dxPlayer = player.x - enemy.x; const dyPlayer = player.y - enemy.y; const distPlayer = Math.sqrt(dxPlayer * dxPlayer + dyPlayer * dyPlayer); const enemyGridPos = getGridCoords(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2); if (distPlayer < PIOLHO_VISION_RANGE && enemy.moveCooldown <= 0 && enemy.stunTimer <= 0) { if (enemy.state !== 'chase') { enemy.state = 'chase'; enemy.pathRecalculateTimer = 0; enemy.path = null; if (!enemy.chaseSoundPlayed) { playSound('piolhoChase'); enemy.chaseSoundPlayed = true; } } } else if (enemy.state === 'chase') { if (distPlayer > PIOLHO_VISION_RANGE * 1.3) { enemy.state = 'patrol'; enemy.path = null; enemy.patrolTargetX = enemy.x; enemy.patrolTargetY = enemy.y; } } let targetX, targetY, currentSpeed; if (enemy.state === 'chase' && enemy.stunTimer <= 0 && enemy.moveCooldown <= 0) { currentSpeed = PIOLHO_CHASE_SPEED; enemy.pathRecalculateTimer -= deltaTime; if (enemy.pathRecalculateTimer <= 0) { enemy.pathRecalculateTimer = PATH_RECALCULATE_INTERVAL; enemy.path = findPath(enemyGridPos.x, enemyGridPos.y, playerGridPos.x, playerGridPos.y); if (enemy.path && enemy.path.length > 0) { enemy.path.shift(); } } if (enemy.path && enemy.path.length > 0) { const nextNode = enemy.path[0]; const targetPixelPos = getPixelCenterFromGrid(nextNode.x, nextNode.y); targetX = targetPixelPos.x; targetY = targetPixelPos.y; const dxTarget = targetX - (enemy.x + enemy.width / 2); const dyTarget = targetY - (enemy.y + enemy.height / 2); const distTarget = Math.sqrt(dxTarget * dxTarget + dyTarget * dyTarget); if (distTarget < TILE_SIZE * 0.3) { enemy.path.shift(); if (enemy.path.length > 0) { const newNextNode = enemy.path[0]; const newTargetPixelPos = getPixelCenterFromGrid(newNextNode.x, newNextNode.y); targetX = newTargetPixelPos.x; targetY = newTargetPixelPos.y; } else { targetX = player.x + player.width / 2; targetY = player.y + player.height / 2; enemy.pathRecalculateTimer = 0; } } } else { targetX = player.x + player.width / 2; targetY = player.y + player.height / 2; } } else { currentSpeed = PIOLHO_SPEED; enemy.path = null; const distToPatrolTarget = Math.sqrt(Math.pow(enemy.patrolTargetX - (enemy.x + enemy.width/2), 2) + Math.pow(enemy.patrolTargetY - (enemy.y + enemy.height/2), 2)); if (distToPatrolTarget < TILE_SIZE * 0.6 || enemy.patrolTargetX === enemy.x) { let foundNewTarget = false; let attempts = 0; while (!foundNewTarget && attempts < 10) { attempts++; const angle = Math.random() * Math.PI * 2; const distance = TILE_SIZE * (Math.random() * 4 + 2); const potentialX = enemy.x + Math.cos(angle) * distance; const potentialY = enemy.y + Math.sin(angle) * distance; const gridCoords = getGridCoords(potentialX, potentialY); if (!isWall(gridCoords.x, gridCoords.y)) { enemy.patrolTargetX = potentialX; enemy.patrolTargetY = potentialY; foundNewTarget = true; } } if (!foundNewTarget) { enemy.patrolTargetX = enemy.x; enemy.patrolTargetY = enemy.y; } } targetX = enemy.patrolTargetX; targetY = enemy.patrolTargetY; } if (enemy.stunTimer <= 0 && enemy.moveCooldown <= 0 && targetX !== undefined) { const dxMove = targetX - (enemy.x + enemy.width / 2); const dyMove = targetY - (enemy.y + enemy.height / 2); const distMove = Math.sqrt(dxMove * dxMove + dyMove * dyMove); if (distMove > 5) { const moveX = (dxMove / distMove) * currentSpeed * deltaTime; const moveY = (dyMove / distMove) * currentSpeed * deltaTime; let nextX = enemy.x + moveX; let nextY = enemy.y + moveY; const nextGrid = getGridCoords(nextX + enemy.width / 2, nextY + enemy.height / 2); if (!isWall(nextGrid.x, nextGrid.y)) { enemy.x = nextX; enemy.y = nextY; } else { const gridXOnly = getGridCoords(nextX + enemy.width / 2, enemy.y + enemy.height / 2); if (!isWall(gridXOnly.x, gridXOnly.y)) { enemy.x = nextX; } else { const gridYOnly = getGridCoords(enemy.x + enemy.width / 2, nextY + enemy.height / 2); if (!isWall(gridYOnly.x, gridYOnly.y)) { enemy.y = nextY; } else { if (enemy.state === 'patrol') { enemy.patrolTargetX = enemy.x; enemy.patrolTargetY = enemy.y; } } } } } } }); }
+        function updateIdeas(deltaTime) { /* ... Same ... */ ideas.forEach(idea => { if (!idea.collected) { idea.pulseOffset += idea.pulseSpeed * deltaTime; } }); }
+        function updateCabecao(deltaTime) { /* ... Same ... */ nextCabecaoTime -= deltaTime; if (nextCabecaoTime <= 0 && !cabecaoEffectActive) { cabecaoEffectActive = true; cabecaoEffectTimer = CABECAO_DURATION; nextCabecaoTime = CABECAO_INTERVAL + Math.random() * 4 - 1; playSound('cabecaoGrowth'); } if (cabecaoEffectActive) { cabecaoEffectTimer -= deltaTime; const distortionAmount = (assimilation / 100) * 15 + 2; distortionOffset.x = (Math.random() - 0.5) * distortionAmount; distortionOffset.y = (Math.random() - 0.5) * distortionAmount; if (cabecaoEffectTimer <= 0) { cabecaoEffectActive = false; distortionOffset.x = 0; distortionOffset.y = 0; } } else { distortionOffset.x = 0; distortionOffset.y = 0; } }
+
+        function updateAssimilation(deltaTime) {
+             if (!player || gameState !== 'playing') return;
+             let assimilationRate = ASSIMILATION_PER_SECOND;
+             if (cabecaoEffectActive) { assimilationRate *= ASSIMILATION_CABECÃO_BOOST; }
+             if (player.isCollidingWithPiolho) { assimilationRate += ASSIMILATION_ON_CONTACT_PER_SECOND; }
+             assimilation += assimilationRate * deltaTime;
+             assimilation = Math.min(assimilation, 100);
+             // Update UI directly here or rely on updateUI called in gameLoop/draw
+             // uiAssimilation.textContent = Math.floor(assimilation);
+             cabecaoSizeFactor = 0.2 + Math.pow(assimilation / 100, 2) * 1.5;
+             cabecaoAlphaFactor = 0.05 + Math.pow(assimilation / 100, 1.5) * 0.8;
+
+             if (assimilation >= 100) { // Game Over
+                 console.log("Game Over! Assimilation reached 100.");
+                 gameState = 'gameOver';
+                 // Check for High Score before resetting level
+                 if (currentScore > highScore) {
+                     console.log(`New High Score: ${currentScore}`);
+                     highScore = currentScore;
+                     localStorage.setItem(HIGH_SCORE_KEY, highScore.toString());
+                 }
+                 difficultyLevel = 1; // Reset difficulty
+                 messageElement.innerHTML = `VOCÊ FOI ASSIMILADO!<br>Pontuação Final: ${currentScore}<br>Maior Pontuação: ${highScore}<br><br>Pressione 'E' ou TOQUE AQUI para tentar novamente.`; // Added score display
+                 messageElement.style.display = 'block';
+                 stopBackgroundMusic();
+                 playSound('loseSound');
+                 updateUI(); // Update UI one last time
+             }
+         }
+
+         function checkGameCollisions() {
+             if (!player || gameState !== 'playing') return;
+             player.isCollidingWithPiolho = false;
+             const playerCenterX = player.x + player.width / 2;
+             const playerCenterY = player.y + player.height / 2;
+
+             // Idea Collection
+             ideas.forEach(idea => {
+                 if (!idea.collected) {
+                     const dx = playerCenterX - idea.x;
+                     const dy = playerCenterY - idea.y;
+                     const dist = Math.sqrt(dx * dx + dy * dy);
+                     if (dist < player.width / 2 + idea.size) {
+                         idea.collected = true;
+                         ideasCollected++;
+                         currentScore += POINTS_PER_IDEA; // Add score
+                         // updateUI(); // Update UI immediately after score change
+                         playSound('ideaCollect');
+
+                         // Check Win Condition
+                         if (ideasCollected === totalIdeas) {
+                             console.log(`Level ${difficultyLevel} Complete!`);
+                             gameState = 'win';
+                             if (currentScore > highScore) {
+                                 console.log(`New High Score: ${currentScore}`);
+                                 highScore = currentScore;
+                                 localStorage.setItem(HIGH_SCORE_KEY, highScore.toString());
+                             }
+                             difficultyLevel++; // Increase difficulty for next round
+                             messageElement.innerHTML = `NÍVEL ${difficultyLevel - 1} COMPLETO!<br>Pontuação: ${currentScore}<br>Maior Pontuação: ${highScore}<br><br>Prepare-se para o Nível ${difficultyLevel}...<br>(Pressione 'E' ou TOQUE AQUI para continuar)`;
+                             messageElement.style.display = 'block';
+                             stopBackgroundMusic();
+                             playSound('winSound');
+                             updateUI(); // Update UI one last time for the level
+                         }
+                     }
+                 }
+             });
+
+             // Player-Enemy and Pulse-Enemy Collision
+             // ... (collision logic remains the same) ...
+             const pulseCircle = { x: playerCenterX, y: playerCenterY, radius: PULSE_RADIUS }; enemies.forEach(enemy => { const enemyRect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }; const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height }; if (checkCollision(playerRect, enemyRect) && enemy.stunTimer <= 0) { player.isCollidingWithPiolho = true; } if (creativePulseActive && enemy.stunTimer <= 0) { const enemyCenter = { x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2, radius: enemy.width / 2 }; if (checkCircleCollision(pulseCircle, enemyCenter)) { const pushDx = enemy.x - player.x; const pushDy = enemy.y - player.y; const pushDist = Math.sqrt(pushDx * pushDx + pushDy * pushDy); const pushForce = TILE_SIZE * 1.8; if (pushDist > 0) { enemy.x += (pushDx / pushDist) * pushForce; enemy.y += (pushDy / pushDist) * pushForce; } enemy.stunTimer = 0.9; enemy.moveCooldown = 1.2; enemy.state = 'patrol'; enemy.path = null; enemy.chaseSoundPlayed = false; } } });
+         }
+
+         // --- UI Update Function ---
+         function updateUI() {
+             uiScore.textContent = currentScore;
+             uiHighScore.textContent = highScore;
+             uiLevel.textContent = difficultyLevel;
+             uiAssimilation.textContent = Math.floor(assimilation);
+             uiIdeasCollected.textContent = ideasCollected;
+             uiIdeasTotal.textContent = totalIdeas > 0 ? totalIdeas : '?'; // Show '?' if 0
+
+             // Update Pulse Status Text
+             if (creativePulseActive) {
+                 uiPulseStatus.textContent = 'Pulso ATIVO!';
+                 uiPulseStatus.style.color = '#ffffff';
+             } else if (creativePulseCooldownTimer > 0) {
+                 uiPulseStatus.textContent = `Recarregando (${creativePulseCooldownTimer.toFixed(1)}s)`;
+                 uiPulseStatus.style.color = '#ff9999';
+             } else {
+                 uiPulseStatus.textContent = 'Pulso PRONTO';
+                 uiPulseStatus.style.color = '#99ffff';
+             }
+         }
 
 
         // --- Drawing ---
-        // DrawMap needs to use the generated mapLayout
-        function drawMap() {
-            if (!mapLayout) return; // Don't draw if map not generated
-            for (let y = 0; y < MAP_ROWS; y++) {
-                for (let x = 0; x < MAP_COLS; x++) {
-                    if (mapLayout[y] && mapLayout[y][x] === 1) { // Check row exists too
-                        const wallColorBase = 10;
-                        const wallLightness = 15 + Math.sin(x * 0.5 + y * 0.3 + performance.now() * 0.0001) * 5; // Subtle pulse?
-                        ctx.fillStyle = `hsl(${wallColorBase}, 30%, ${wallLightness}%)`;
-                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE + 1, TILE_SIZE + 1); // Overlap slightly
-                        // Simple shading (optional)
-                        ctx.fillStyle = `hsla(${wallColorBase}, 30%, ${wallLightness + 5}%, 0.5)`;
-                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE * 0.1);
-                        ctx.fillStyle = `hsla(${wallColorBase}, 30%, ${wallLightness - 5}%, 0.5)`;
-                        ctx.fillRect(x * TILE_SIZE, (y + 1) * TILE_SIZE - TILE_SIZE * 0.1, TILE_SIZE, TILE_SIZE * 0.1);
-                    }
-                }
-            }
-        }
-        // ... (Other drawing functions remain the same) ...
-        function drawBackgroundImage() { ctx.fillStyle = '#100505'; ctx.fillRect(0, 0, canvas.width, canvas.height); if (isCabecaoImageLoaded) { ctx.save(); ctx.globalAlpha = Math.min(cabecaoAlphaFactor, 0.85); const imgAspect = cabecaoImage.naturalWidth / cabecaoImage.naturalHeight; const canvasAspect = canvas.width / canvas.height; let drawWidth, drawHeight, drawX, drawY; if (imgAspect > canvasAspect) { drawHeight = canvas.height * cabecaoSizeFactor; drawWidth = drawHeight * imgAspect; } else { drawWidth = canvas.width * cabecaoSizeFactor; drawHeight = drawWidth / imgAspect; } drawX = (canvas.width - drawWidth) / 2; drawY = (canvas.height - drawHeight) / 2; ctx.drawImage(cabecaoImage, drawX, drawY, drawWidth, drawHeight); ctx.restore(); } } function drawPlayer() { if (!player) return; ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, player.width, player.height); ctx.fillStyle = '#eeeeee'; ctx.fillRect(player.x, player.y, player.width, player.height * 0.2); } function drawEnemies() { enemies.forEach(enemy => { ctx.fillStyle = enemy.color; ctx.beginPath(); ctx.ellipse(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 2, enemy.height / 2.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ff4444'; ctx.beginPath(); ctx.arc(enemy.x + enemy.width * 0.5, enemy.y + enemy.height * 0.4, enemy.width * 0.1, 0, Math.PI * 2); ctx.fill(); }); } function drawIdeas() { ideas.forEach(idea => { if (!idea.collected) { const flicker = Math.sin(idea.pulseOffset * 2) * 0.1 + 0.9; const currentSize = idea.size + Math.sin(idea.pulseOffset) * idea.size * 0.15; ctx.fillStyle = idea.baseColor.replace(')', `, ${flicker * 0.6})`).replace('hsl', 'hsla'); ctx.beginPath(); ctx.arc(idea.x, idea.y, currentSize * 1.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = idea.flickerColor.replace(')', `, ${flicker})`).replace('rgba', 'rgba'); ctx.beginPath(); ctx.arc(idea.x, idea.y, currentSize * 0.6, 0, Math.PI * 2); ctx.fill(); } }); } function drawCreativePulse() { if (creativePulseActive && player) { const pulseProgress = 1 - (creativePulseTimer / PULSE_DURATION); const currentRadius = PULSE_RADIUS * pulseProgress; const currentOpacity = 0.8 * (1 - pulseProgress); ctx.strokeStyle = `rgba(255, 255, 255, ${currentOpacity})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(player.x + player.width / 2, player.y + player.height / 2, currentRadius, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; } } function drawVignette() { ctx.save(); const outerRadius = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2)); const innerRadius = outerRadius * 0.5; const gradient = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, innerRadius, canvas.width / 2, canvas.height / 2, outerRadius); gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)'); ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore(); }
+        // ... (drawMap, drawBackgroundImage, drawPlayer, etc. remain the same) ...
+        function drawMap() { if (!mapLayout) return; for (let y = 0; y < MAP_ROWS; y++) { for (let x = 0; x < MAP_COLS; x++) { if (mapLayout[y] && mapLayout[y][x] === 1) { const wallColorBase = 10; const wallLightness = 15 + Math.sin(x * 0.5 + y * 0.3 + performance.now() * 0.0001) * 5; ctx.fillStyle = `hsl(${wallColorBase}, 30%, ${wallLightness}%)`; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE + 1, TILE_SIZE + 1); ctx.fillStyle = `hsla(${wallColorBase}, 30%, ${wallLightness + 5}%, 0.5)`; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE * 0.1); ctx.fillStyle = `hsla(${wallColorBase}, 30%, ${wallLightness - 5}%, 0.5)`; ctx.fillRect(x * TILE_SIZE, (y + 1) * TILE_SIZE - TILE_SIZE * 0.1, TILE_SIZE, TILE_SIZE * 0.1); } } } }
+        function drawBackgroundImage() { /* ... Same ... */ ctx.fillStyle = '#100505'; ctx.fillRect(0, 0, canvas.width, canvas.height); if (isCabecaoImageLoaded) { ctx.save(); ctx.globalAlpha = Math.min(cabecaoAlphaFactor, 0.85); const imgAspect = cabecaoImage.naturalWidth / cabecaoImage.naturalHeight; const canvasAspect = canvas.width / canvas.height; let drawWidth, drawHeight, drawX, drawY; if (imgAspect > canvasAspect) { drawHeight = canvas.height * cabecaoSizeFactor; drawWidth = drawHeight * imgAspect; } else { drawWidth = canvas.width * cabecaoSizeFactor; drawHeight = drawWidth / imgAspect; } drawX = (canvas.width - drawWidth) / 2; drawY = (canvas.height - drawHeight) / 2; ctx.drawImage(cabecaoImage, drawX, drawY, drawWidth, drawHeight); ctx.restore(); } } function drawPlayer() { /* ... Same ... */ if (!player) return; ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, player.width, player.height); ctx.fillStyle = '#eeeeee'; ctx.fillRect(player.x, player.y, player.width, player.height * 0.2); } function drawEnemies() { /* ... Same ... */ enemies.forEach(enemy => { ctx.fillStyle = enemy.color; ctx.beginPath(); ctx.ellipse(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 2, enemy.height / 2.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ff4444'; ctx.beginPath(); ctx.arc(enemy.x + enemy.width * 0.5, enemy.y + enemy.height * 0.4, enemy.width * 0.1, 0, Math.PI * 2); ctx.fill(); }); } function drawIdeas() { /* ... Same ... */ ideas.forEach(idea => { if (!idea.collected) { const flicker = Math.sin(idea.pulseOffset * 2) * 0.1 + 0.9; const currentSize = idea.size + Math.sin(idea.pulseOffset) * idea.size * 0.15; ctx.fillStyle = idea.baseColor.replace(')', `, ${flicker * 0.6})`).replace('hsl', 'hsla'); ctx.beginPath(); ctx.arc(idea.x, idea.y, currentSize * 1.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = idea.flickerColor.replace(')', `, ${flicker})`).replace('rgba', 'rgba'); ctx.beginPath(); ctx.arc(idea.x, idea.y, currentSize * 0.6, 0, Math.PI * 2); ctx.fill(); } }); } function drawCreativePulse() { /* ... Same ... */ if (creativePulseActive && player) { const pulseProgress = 1 - (creativePulseTimer / PULSE_DURATION); const currentRadius = PULSE_RADIUS * pulseProgress; const currentOpacity = 0.8 * (1 - pulseProgress); ctx.strokeStyle = `rgba(255, 255, 255, ${currentOpacity})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(player.x + player.width / 2, player.y + player.height / 2, currentRadius, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; } } function drawVignette() { /* ... Same ... */ ctx.save(); const outerRadius = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2)); const innerRadius = outerRadius * 0.5; const gradient = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, innerRadius, canvas.width / 2, canvas.height / 2, outerRadius); gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)'); ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore(); }
 
         function draw() {
              drawBackgroundImage();
              ctx.save();
              ctx.translate(distortionOffset.x, distortionOffset.y);
-             drawMap(); // Draws the potentially random map
+             drawMap();
              drawIdeas();
              drawEnemies();
              drawPlayer();
              drawCreativePulse();
              ctx.restore();
              drawVignette();
+             updateUI(); // Update UI text every frame
         }
 
         // --- Game Loop ---
-        // ... (gameLoop function remains the same) ...
+        // ... (remains the same) ...
         function gameLoop(timestamp) { if (!lastTime) { lastTime = timestamp; } const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; const dtClamped = Math.min(deltaTime, 0.1); if (gameState === 'playing') { updatePlayer(dtClamped); updateEnemies(dtClamped); updateIdeas(dtClamped); updateAssimilation(dtClamped); updateCabecao(dtClamped); checkGameCollisions(); } draw(); if (gameLoopRequestId !== null) { gameLoopRequestId = requestAnimationFrame(gameLoop); } }
 
         // --- Initialization ---
         function initGame() {
-            console.log("Initializing game state...");
+            console.log(`Initializing game state for Level ${difficultyLevel}...`);
             // Stop previous loop
              if (gameLoopRequestId) { cancelAnimationFrame(gameLoopRequestId); gameLoopRequestId = null; console.log("Previous loop cancelled."); }
 
-            // Generate the map for this round <<<< NEW
-            mapLayout = generateRandomMap(MAP_ROWS, MAP_COLS);
+            // Load High Score (Do this once, maybe outside init or check if already loaded)
+            // Let's load it every time for simplicity here, localStorage is fast enough.
+            highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0');
+
+            // Calculate difficulty parameters
+            const numEnemies = Math.floor(BASE_ENEMY_COUNT + (difficultyLevel -1) * ENEMY_INCREASE_PER_LEVEL);
+            const currentInitialWallChance = Math.min(MAX_WALL_CHANCE, BASE_INITIAL_WALL_CHANCE + (difficultyLevel - 1) * WALL_CHANCE_INCREASE_PER_LEVEL);
+            const numIdeas = BASE_NUM_IDEAS + (difficultyLevel - 1) * IDEA_INCREASE_PER_LEVEL;
+            console.log(`Difficulty Params: Enemies=${numEnemies}, WallChance=${currentInitialWallChance.toFixed(3)}, Ideas=${numIdeas}`);
+
+            // Generate the map for this round
+            mapLayout = generateRandomMap(MAP_ROWS, MAP_COLS, currentInitialWallChance);
 
             // Initialize Audio
             initAudioContext();
@@ -373,88 +340,49 @@
 
             // Reset Game State Variables
             gameState = 'playing';
-            assimilation = 0; ideasCollected = 0; totalIdeas = 0;
-            enemies = []; ideas = []; keys = {};
+            currentScore = 0; // Reset score for the new level
+            assimilation = 0; ideasCollected = 0; totalIdeas = 0; // totalIdeas will be recounted
+            enemies = []; ideas = []; keys = {}; player = null;
             touchControls = { up: false, down: false, left: false, right: false, pulse: false };
             document.querySelectorAll('.touch-button.active').forEach(b => b.classList.remove('active'));
             creativePulseActive = false; creativePulseTimer = 0; creativePulseCooldownTimer = 0;
-            cabecaoEffectActive = false; nextCabecaoTime = CABECAO_INTERVAL * 0.8;
+            cabecaoEffectActive = false; nextCabecaoTime = CABECAO_INTERVAL * (0.8 + Math.random() * 0.4); // Slightly randomize start
             cabecaoSizeFactor = 0.2; cabecaoAlphaFactor = 0.05;
             messageElement.style.display = 'none';
-            uiPulseStatus.textContent = 'Pulso PRONTO'; uiPulseStatus.style.color = '#99ffff';
             distortionOffset = { x: 0, y: 0 };
 
             // Load sounds
             loadAllSounds();
 
-            // --- Spawning logic (Uses the newly generated map) ---
-             totalIdeas = 0; ideas = []; enemies = []; player = null; // Reset entities
-
+            // --- Spawning logic ---
              let validSpawns = [];
-             for (let y = 0; y < MAP_ROWS; y++) {
-                 for (let x = 0; x < MAP_COLS; x++) {
-                     // Check the generated map
-                     if (mapLayout && mapLayout[y] && mapLayout[y][x] === 0) {
-                         validSpawns.push({ x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 });
-                     }
-                 }
-             }
+             for (let y = 0; y < MAP_ROWS; y++) { for (let x = 0; x < MAP_COLS; x++) { if (mapLayout && mapLayout[y] && mapLayout[y][x] === 0) { validSpawns.push({ x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 }); } } }
 
-             if (validSpawns.length === 0) {
-                 console.error("CRITICAL: No valid spawn points found after map generation! Check generation parameters.");
-                 // Handle this critical failure - maybe display an error message and stop?
-                 messageElement.textContent = "Erro fatal na geração do mapa!";
-                 messageElement.style.display = 'block';
-                 gameState = 'error'; // Prevent game loop updates
-                 return; // Stop initialization here
-             }
-
+             if (validSpawns.length === 0) { console.error("CRITICAL: No valid spawn points!"); gameState = 'error'; messageElement.textContent = "Erro fatal na geração do mapa!"; messageElement.style.display = 'block'; return; }
              validSpawns.sort(() => Math.random() - 0.5);
 
              // Create Player
              const playerSpawn = validSpawns.pop();
              player = createPlayer(playerSpawn.x - PLAYER_SIZE / 2, playerSpawn.y - PLAYER_SIZE / 2);
 
-             // Create Ideas (Ensure enough valid spawns remain)
-             const numIdeas = 15;
-             for (let i = 0; i < numIdeas && validSpawns.length > 0; i++) {
-                 const ideaSpawn = validSpawns.pop();
-                 ideas.push(createIdea(ideaSpawn.x, ideaSpawn.y));
-             }
-             if (ideas.length < numIdeas) {
-                 console.warn(`Could only spawn ${ideas.length} out of ${numIdeas} ideas.`);
-             }
-             uiIdeasTotal.textContent = totalIdeas; // Update total
+             // Create Ideas
+             for (let i = 0; i < numIdeas && validSpawns.length > 0; i++) { const ideaSpawn = validSpawns.pop(); ideas.push(createIdea(ideaSpawn.x, ideaSpawn.y)); }
+             if (ideas.length < numIdeas) { console.warn(`Could only spawn ${ideas.length}/${numIdeas} ideas.`); }
+             // uiIdeasTotal is updated via updateUI now
 
-             // Create Enemies (Ensure enough valid spawns remain)
-             const numEnemies = 7;
-             let enemiesToSpawn = []; // Buffer enemies to check distance after all potential spots are chosen
-             for (let i = 0; i < numEnemies && validSpawns.length > 0; i++) {
-                  enemiesToSpawn.push(validSpawns.pop());
-             }
+             // Create Enemies
+             let enemiesToSpawn = [];
+             for (let i = 0; i < numEnemies && validSpawns.length > 0; i++) { enemiesToSpawn.push(validSpawns.pop()); }
+             enemiesToSpawn.forEach(enemySpawn => { if (Math.sqrt(Math.pow(player.x - enemySpawn.x, 2) + Math.pow(player.y - enemySpawn.y, 2)) > TILE_SIZE * 5) { enemies.push(createEnemy(enemySpawn.x - PIOLHO_SIZE / 2, enemySpawn.y - PIOLHO_SIZE / 2)); } else { /* console.log("Enemy spawn too close, skipping."); */ } });
+             if (enemies.length < numEnemies) { console.warn(`Could only spawn ${enemies.length}/${numEnemies} enemies.`); }
 
-             enemiesToSpawn.forEach(enemySpawn => {
-                  // Check distance from player AFTER player is placed
-                 if (Math.sqrt(Math.pow(player.x - enemySpawn.x, 2) + Math.pow(player.y - enemySpawn.y, 2)) > TILE_SIZE * 5) {
-                     enemies.push(createEnemy(enemySpawn.x - PIOLHO_SIZE / 2, enemySpawn.y - PIOLHO_SIZE / 2));
-                 } else {
-                     console.log("Enemy spawn too close to player, skipping.");
-                     // Optional: could try putting the spawn back and reshuffling, but might be complex/slow
-                 }
-             });
-              if (enemies.length < numEnemies) {
-                 console.warn(`Could only spawn ${enemies.length} out of ${numEnemies} enemies (some might have been too close to player).`);
-             }
+            // Initial UI Update
+            updateUI();
 
-
-            // Update UI
-            uiIdeasCollected.textContent = ideasCollected;
-            uiAssimilation.textContent = Math.floor(assimilation);
-
-            console.log(`Game initialized: ${totalIdeas} ideas, ${enemies.length} enemies spawned.`);
+            console.log(`Level ${difficultyLevel} initialized: ${totalIdeas} ideas, ${enemies.length} enemies spawned.`);
 
             // Start BGM (with check)
-             let bgmCheckInterval = setInterval(() => { /* ... same BGM check logic ... */ if (gameState !== 'playing') { clearInterval(bgmCheckInterval); return; } if (soundBuffers.backgroundMusic && audioContext && audioContext.state === 'running') { clearInterval(bgmCheckInterval); if (!bgmSourceNode) { playSound('backgroundMusic', true); } } else if (soundBuffers.backgroundMusic === null) { clearInterval(bgmCheckInterval); console.warn("BGM failed load, cannot play."); } else { console.log("Waiting for BGM/AC..."); } }, 300);
+            let bgmCheckInterval = setInterval(() => { if (gameState !== 'playing') { clearInterval(bgmCheckInterval); return; } if (soundBuffers.backgroundMusic && audioContext && audioContext.state === 'running') { clearInterval(bgmCheckInterval); if (!bgmSourceNode) { playSound('backgroundMusic', true); } } else if (soundBuffers.backgroundMusic === null) { clearInterval(bgmCheckInterval); console.warn("BGM failed load."); } else { /* console.log("Waiting BGM/AC..."); */ } }, 300);
 
             // Start Game Loop
             if (gameLoopRequestId === null) {
@@ -468,8 +396,10 @@
 
         // --- Start Game ---
         setupInputListeners();
-        // Don't create a placeholder player here, initGame handles it after map generation
-        initGame(); // Initial game setup.
+        // Load high score initially to display it even before first game start
+        highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0');
+        uiHighScore.textContent = highScore; // Initial display
+        initGame(); // Start the first level
 
     </script>
 </body>
